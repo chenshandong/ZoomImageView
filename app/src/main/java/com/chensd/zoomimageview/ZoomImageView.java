@@ -5,6 +5,7 @@ import android.content.Context;
 import android.graphics.Matrix;
 import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
+import android.os.Build;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.GestureDetector;
@@ -22,7 +23,7 @@ public class ZoomImageView extends ImageView implements ScaleGestureDetector.OnS
     private static final String TAG = ZoomImageView.class.getSimpleName();
 
     public static final float SCALE_MAX = 4.0F;
-    public static final float SCALE_MID = 2.0F;
+    public static final float SCALE_MID = 1.5F;
 
     private float initScale = 1.0F;
 
@@ -114,7 +115,9 @@ public class ZoomImageView extends ImageView implements ScaleGestureDetector.OnS
             //如果在合法范围内，继续缩放
             if(((tmpScale > 1f) && (currentScale < mTargetScale) ||
                     ((tmpScale < 1f) && (currentScale > mTargetScale)))){
-                ZoomImageView.this.postDelayed(this, 10);
+
+//                ZoomImageView.this.postDelayed(this, 10);
+                postOnAnimation(ZoomImageView.this, this);
             }else{
                 final float deltaScale = mTargetScale / currentScale;
                 mScaleMatrix.postScale(deltaScale, deltaScale, x, y);
@@ -125,6 +128,14 @@ public class ZoomImageView extends ImageView implements ScaleGestureDetector.OnS
             }
 
 
+        }
+    }
+
+    private void postOnAnimation(View v, Runnable autoScaleRunnable) {
+        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN){
+            v.postOnAnimation(autoScaleRunnable);
+        }else{
+            v.postDelayed(autoScaleRunnable, 16);
         }
     }
 
@@ -139,21 +150,21 @@ public class ZoomImageView extends ImageView implements ScaleGestureDetector.OnS
             return true;
 
         //范围控制
-        if ((scale < SCALE_MAX && scaleFactor > 1.0F) || (scale > initScale && scaleFactor < 1.0F)) {
+        if ((scale < SCALE_MAX && scaleFactor > 1.0F) || (scale > (initScale/2) && scaleFactor < 1.0F)) {
 
             /**
              * scaleFactor 返回即时的两点之间的数据
              * scale 不一样，返回的最后的x的缩放的倍数
              */
-            if (scaleFactor * scale < initScale) {
-                scaleFactor = initScale / scale;  // scale越来越小 ，最终缩小到原值，与initScale 相同，结果相除为1
-//                scaleFactor = 1.0F;
-            }
-
-            if (scaleFactor * scale > SCALE_MAX) {
-                scaleFactor = SCALE_MAX / scale;  //
-                Log.e("scaleFactor：", scaleFactor + "");
-            }
+//            if (scaleFactor * scale < initScale) {
+//                scaleFactor = initScale / scale;  // scale越来越小 ，最终缩小到原值，与initScale 相同，结果相除为1
+////                scaleFactor = 1.0F;
+//            }
+//
+//            if (scaleFactor * scale > SCALE_MAX) {
+//                scaleFactor = SCALE_MAX / scale;  //
+//                Log.e("scaleFactor：", scaleFactor + "");
+//            }
 
             mScaleMatrix.postScale(scaleFactor, scaleFactor, detector.getFocusX(), detector.getFocusY());
             checkBorderAndCenterWhenScale();
@@ -254,6 +265,11 @@ public class ZoomImageView extends ImageView implements ScaleGestureDetector.OnS
                 mLastY = y;
                 break;
             case MotionEvent.ACTION_UP:
+                //当缩放的值小于初始值时就还原
+                if(getScale() < initScale){
+                    isAutoScale = true;
+                    ZoomImageView.this.postDelayed(new AutoScaleRunnable(initScale, getWidth()/2, getHeight()/2), 16);
+                }
             case MotionEvent.ACTION_CANCEL:
                 lastPointerCount = 0;
                 break;
